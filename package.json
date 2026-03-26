@@ -1,0 +1,60 @@
+{
+  "name": "@mcpware/claude-code-organizer",
+  "version": "0.9.1",
+  "description": "Organize all your Claude Code memories, skills, MCP servers, commands, agents, rules, and hooks — view by scope hierarchy, move between scopes via drag-and-drop",
+  "type": "module",
+  "files": [
+    "bin/",
+    "src/",
+    "LICENSE",
+    "README.md"
+  ],
+  "bin": {
+    "claude-code-organizer": "./bin/cli.mjs"
+  },
+  "scripts": {
+    "start": "node bin/cli.mjs",
+    "mcp": "node src/mcp-server.mjs",
+    "test": "npx playwright test --config tests/e2e/playwright.config.mjs",
+    "test:headed": "npx playwright test --config tests/e2e/playwright.config.mjs --headed"
+  },
+  "keywords": [
+    "claude-code",
+    "mcp-server",
+    "claude-memory",
+    "claude-skills",
+    "anthropic",
+    "scope-management",
+    "drag-and-drop",
+    "developer-tools",
+    "dashboard",
+    "config-manager",
+    "ai-tools",
+    "open-source",
+    "claude-code-plugin",
+    "organizer",
+    "cli"
+  ],
+  "publishConfig": {
+    "provenance": true
+  },
+  "mcpName": "io.github.mcpware/claude-code-organizer",
+  "author": "ithiria894",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mcpware/claude-code-organizer"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  },
+  "optionalDependencies": {
+    "ai-tokenizer": "^1.0.6"
+  }
+}

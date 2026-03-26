@@ -1,0 +1,21 @@
+{
+  "name": "claude-code-organizer",
+  "version": "0.2.5",
+  "description": "Organize all your Claude Code memories, skills, MCP servers, and hooks — view by scope hierarchy, move between scopes via drag-and-drop",
+  "author": {
+    "name": "ithiria894",
+    "url": "https://github.com/ithiria894"
+  },
+  "homepage": "https://github.com/mcpware/claude-code-organizer",
+  "repository": "https://github.com/mcpware/claude-code-organizer",
+  "license": "MIT",
+  "keywords": [
+    "organizer",
+    "memory",
+    "skills",
+    "mcp",
+    "config",
+    "scope",
+    "dashboard"
+  ]
+}

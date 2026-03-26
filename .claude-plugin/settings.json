@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "claude-code-organizer": {
+      "command": "npx",
+      "args": ["-y", "@mcpware/claude-code-organizer", "--mcp"]
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npx @mcpware/claude-code-organizer*)"
+    ]
+  }
+}

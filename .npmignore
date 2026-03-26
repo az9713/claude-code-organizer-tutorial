@@ -1,0 +1,61 @@
+.mcpregistry_github_token
+.mcpregistry_registry_token
+mcp-publisher
+*.tgz
+PLAN.md
+SHIP.md
+docs/
+
+# Dev/design files
+mockup*.html
+ui-map-regions.png
+ui-reference-map.png
+.impeccable.md
+.market-research-data.json
+
+# Media files — not needed in npm package
+*.webm
+*.png
+!src/ui/**/*.png
+
+# Test files
+tests/
+test-results/
+test-output.log
+
+# Misc
+CONTRIBUTING.md
+Dockerfile
+PRIVACY.md
+
+# Marketing assets
+marketing/
+
+# Claude worktrees/config
+.claude/
+
+# CI
+.github/
+
+# Plugin packaging (distributed separately)
+.claude-plugin/
+skills/
+
+# READMEs — only keep main English README
+README.zh-CN.md
+README.zh-TW.md
+README.zh-HK.md
+README.ja.md
+README.ko.md
+README.es.md
+README.id.md
+README.it.md
+README.pt-BR.md
+README.tr.md
+README.vi.md
+README.th.md
+
+# Config/meta files not needed at runtime
+glama.json
+server.json
+llms.txt
