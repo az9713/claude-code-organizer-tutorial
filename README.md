@@ -32,8 +32,8 @@ This repository also contains a complete OWASP security audit and all 18 remedia
 
 | File | Description |
 |------|-------------|
-| [`SECURITY-AUDIT.md`](./SECURITY-AUDIT.md) | **Full OWASP Top 10 audit** — beginner-friendly report covering 18 findings (1 Critical, 6 High, 6 Medium, 4 Low, 6 Informational), attack chain analysis, CVSS scores, vulnerable code snippets, attack scenarios, and suggested fixes |
-| [`SECURITY-REMEDIATION-REPORT.md`](./SECURITY-REMEDIATION-REPORT.md) | **Remediation documentation** — per-vulnerability before/after code for all 18 fixes, agent team architecture, per-agent inputs/outputs, and a turn-by-turn communication log |
+| [`tutorial/SECURITY-AUDIT.md`](./tutorial/SECURITY-AUDIT.md) | **Full OWASP Top 10 audit** — beginner-friendly report covering 18 findings (1 Critical, 6 High, 6 Medium, 4 Low, 6 Informational), attack chain analysis, CVSS scores, vulnerable code snippets, attack scenarios, and suggested fixes |
+| [`tutorial/SECURITY-REMEDIATION-REPORT.md`](./tutorial/SECURITY-REMEDIATION-REPORT.md) | **Remediation documentation** — per-vulnerability before/after code for all 18 fixes, agent team architecture, per-agent inputs/outputs, and a turn-by-turn communication log |
 | [`docs/plans/2026-03-26-owasp-security-remediations.md`](./docs/plans/2026-03-26-owasp-security-remediations.md) | **TDD implementation plan** — the step-by-step plan (red-green-refactor) used to drive the fixes |
 
 ### What Was Fixed
@@ -56,7 +56,7 @@ A **5-agent Claude Code team** implemented all changes in parallel — each agen
 - **frontend-agent** — `src/ui/index.html`, `src/ui/style.css`, `src/ui/app.js`: SRI hash, font privacy, HTTP error handling
 - **cli-agent** — `bin/cli.mjs`: shell injection prevention via `execFile`
 
-The full turn-by-turn communication between agents is documented in [`SECURITY-REMEDIATION-REPORT.md`](./SECURITY-REMEDIATION-REPORT.md).
+The full turn-by-turn communication between agents is documented in [`tutorial/SECURITY-REMEDIATION-REPORT.md`](./tutorial/SECURITY-REMEDIATION-REPORT.md).
 
 ## About the Original Project
 
