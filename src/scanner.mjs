@@ -29,6 +29,23 @@ function isGlobalClaudeDir(scope) {
   return scope.repoDir && join(scope.repoDir, ".claude") === CLAUDE_DIR;
 }
 
+function redactMcpConfig(serverConfig) {
+  if (!serverConfig || typeof serverConfig !== "object") return serverConfig;
+  if (!serverConfig.env || typeof serverConfig.env !== "object") return serverConfig;
+  return {
+    ...serverConfig,
+    env: Object.fromEntries(
+      Object.entries(serverConfig.env).map(([k, v]) => [k, typeof v === "string" ? "●●●●●●●●" : v])
+    ),
+  };
+}
+
+const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+function sanitizeKeys(obj) {
+  if (!obj || typeof obj !== "object") return obj;
+  return Object.fromEntries(Object.entries(obj).filter(([k]) => !DANGEROUS_KEYS.has(k)));
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 async function exists(p) {
@@ -483,7 +500,7 @@ async function scanMcpServers(scope) {
       const claudeJson = JSON.parse(claudeJsonContent);
       // User-scope MCP servers (global)
       if (scope.id === "global" && claudeJson.mcpServers) {
-        for (const [name, serverConfig] of Object.entries(claudeJson.mcpServers)) {
+        for (const [name, serverConfig] of Object.entries(sanitizeKeys(claudeJson.mcpServers))) {
           if (!serverConfig || typeof serverConfig !== "object") continue;
           const cmd = serverConfig.command || serverConfig.url || "";
           const args = serverConfig.args || [];
@@ -500,14 +517,14 @@ async function scanMcpServers(scope) {
             mtime: "",
             ctime: "",
             path: claudeJsonPath,
-            mcpConfig: serverConfig,
+            mcpConfig: redactMcpConfig(serverConfig),
           });
         }
       }
       // Project-scope MCP servers
       if (scope.repoDir && claudeJson.projects?.[scope.repoDir]?.mcpServers) {
         const projMcp = claudeJson.projects[scope.repoDir].mcpServers;
-        for (const [name, serverConfig] of Object.entries(projMcp)) {
+        for (const [name, serverConfig] of Object.entries(sanitizeKeys(projMcp))) {
           if (!serverConfig || typeof serverConfig !== "object") continue;
           const cmd = serverConfig.command || serverConfig.url || "";
           const args = serverConfig.args || [];
@@ -524,7 +541,7 @@ async function scanMcpServers(scope) {
             mtime: "",
             ctime: "",
             path: claudeJsonPath,
-            mcpConfig: serverConfig,
+            mcpConfig: redactMcpConfig(serverConfig),
           });
         }
       }
@@ -537,7 +554,7 @@ async function scanMcpServers(scope) {
     try {
       const config = JSON.parse(content);
       const servers = config.mcpServers || {};
-      for (const [name, serverConfig] of Object.entries(servers)) {
+      for (const [name, serverConfig] of Object.entries(sanitizeKeys(servers))) {
         const cmd = serverConfig.command || "";
         const args = serverConfig.args || [];
         const desc = [cmd, ...args].filter(Boolean).join(" ").slice(0, 100);
@@ -554,7 +571,7 @@ async function scanMcpServers(scope) {
           mtime: "",
           ctime: "",
           path: mcpPath,
-          mcpConfig: serverConfig,
+          mcpConfig: redactMcpConfig(serverConfig),
         });
       }
     } catch {}
@@ -573,7 +590,7 @@ async function scanMcpServers(scope) {
     try {
       const settings = JSON.parse(content);
       const servers = settings.mcpServers || {};
-      for (const [name, serverConfig] of Object.entries(servers)) {
+      for (const [name, serverConfig] of Object.entries(sanitizeKeys(servers))) {
         const cmd = serverConfig.command || "";
         const args = serverConfig.args || [];
         const desc = [cmd, ...args].filter(Boolean).join(" ").slice(0, 100);
@@ -589,7 +606,7 @@ async function scanMcpServers(scope) {
           mtime: "",
           ctime: "",
           path: sPath,
-          mcpConfig: serverConfig,
+          mcpConfig: redactMcpConfig(serverConfig),
         });
       }
     } catch {}
