@@ -6,7 +6,7 @@
 
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { join, extname, resolve } from "node:path";
+import { join, extname, resolve, sep, isAbsolute } from "node:path";
 import { homedir } from "node:os";
 import { createRequire } from "node:module";
 import https from "node:https";
@@ -38,17 +38,19 @@ async function checkForUpdate() {
 const HOME = homedir();
 const CLAUDE_DIR = join(HOME, ".claude");
 
-/**
- * Validate that a file path is within allowed directories.
- * Prevents path traversal attacks (e.g. ../../etc/passwd).
- */
-function isPathAllowed(filePath) {
+/** Read access: ~/.claude/ and known repo dirs discovered by the scanner. */
+function isReadAllowed(filePath) {
   const resolved = resolve(filePath);
-  // Allow paths under ~/.claude/ or under any discovered project repoDir
-  if (resolved.startsWith(CLAUDE_DIR + "/") || resolved === CLAUDE_DIR) return true;
-  // Allow paths under HOME (covers repo dirs with .mcp.json, CLAUDE.md etc)
-  if (resolved.startsWith(HOME + "/")) return true;
+  if (resolved.startsWith(CLAUDE_DIR + sep) || resolved === CLAUDE_DIR) return true;
+  // Allow reads from repo dirs already discovered by the scanner
+  if (cachedData?.scopes.some(s => s.repoDir && resolved.startsWith(s.repoDir + sep))) return true;
   return false;
+}
+
+/** Write access: ~/.claude/ only — never anywhere else in HOME. */
+function isWriteAllowed(filePath) {
+  const resolved = resolve(filePath);
+  return resolved.startsWith(CLAUDE_DIR + sep) || resolved === CLAUDE_DIR;
 }
 
 const UI_DIR = join(import.meta.dirname, "ui");
@@ -60,24 +62,51 @@ const MIME = {
   ".json": "application/json; charset=utf-8",
 };
 
+// ── Security headers ─────────────────────────────────────────────────
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self' https://cdn.jsdelivr.net",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
+  ].join("; "),
+};
+
 // ── Cached scan data (refresh on each request to /api/scan) ──────────
 let cachedData = null;
+let lastScanTime = 0;
+const SCAN_COOLDOWN_MS = 2000;
 
-async function freshScan() {
+async function freshScan(force = false) {
+  const now = Date.now();
+  if (!force && cachedData && (now - lastScanTime) < SCAN_COOLDOWN_MS) {
+    return cachedData;
+  }
   cachedData = await scan();
+  lastScanTime = now;
   return cachedData;
 }
 
 // ── Request helpers ──────────────────────────────────────────────────
 
 function json(res, data, status = 200) {
-  res.writeHead(status, { "Content-Type": "application/json" });
+  res.writeHead(status, { "Content-Type": "application/json", ...SECURITY_HEADERS });
   res.end(JSON.stringify(data));
 }
 
-async function readBody(req) {
+async function readBody(req, maxBytes = 1_048_576) { // 1 MB default
   let body = "";
-  for await (const chunk of req) body += chunk;
+  let received = 0;
+  for await (const chunk of req) {
+    received += chunk.length;
+    if (received > maxBytes) {
+      req.destroy();
+      throw new Error("Request body too large");
+    }
+    body += chunk;
+  }
   try {
     return JSON.parse(body);
   } catch {
@@ -89,12 +118,25 @@ async function serveFile(res, filePath) {
   try {
     const content = await readFile(filePath);
     const mime = MIME[extname(filePath)] || "application/octet-stream";
-    res.writeHead(200, { "Content-Type": mime });
+    res.writeHead(200, { "Content-Type": mime, ...SECURITY_HEADERS });
     res.end(content);
   } catch {
-    res.writeHead(404);
+    res.writeHead(404, SECURITY_HEADERS);
     res.end("Not found");
   }
+}
+
+/**
+ * Reject cross-origin POST requests.
+ * The browser sets Origin automatically; it cannot be forged by page JavaScript.
+ * Requests with no Origin (e.g. curl, server-side fetch) are allowed because
+ * this server is localhost-only after VULN-001 fix — curl from LAN is blocked at
+ * the network layer.
+ */
+function isOriginAllowed(req) {
+  const origin = req.headers.origin;
+  if (!origin) return true; // non-browser client (curl, server-to-server)
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 }
 
 // ── Routes ───────────────────────────────────────────────────────────
@@ -102,6 +144,11 @@ async function serveFile(res, filePath) {
 async function handleRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const path = url.pathname;
+
+  // Block cross-origin POST/DELETE/PUT requests (CSRF protection)
+  if (req.method !== "GET" && !isOriginAllowed(req)) {
+    return json(res, { ok: false, error: "Forbidden" }, 403);
+  }
 
   // ── API routes ──
 
@@ -374,7 +421,7 @@ async function handleRequest(req, res) {
     const result = await moveItem(item, toScopeId, cachedData.scopes);
 
     // Refresh cache after move
-    if (result.ok) await freshScan();
+    if (result.ok) await freshScan(true);
 
     return json(res, result, result.ok ? 200 : 400);
   }
@@ -395,7 +442,7 @@ async function handleRequest(req, res) {
 
     const result = await deleteItem(item, cachedData.scopes);
 
-    if (result.ok) await freshScan();
+    if (result.ok) await freshScan(true);
 
     return json(res, result, result.ok ? 200 : 400);
   }
@@ -421,7 +468,7 @@ async function handleRequest(req, res) {
   // POST /api/restore — restore a deleted file (for undo)
   if (path === "/api/restore" && req.method === "POST") {
     const { filePath, content, isDir } = await readBody(req);
-    if (!filePath || !filePath.startsWith("/") || !isPathAllowed(filePath)) {
+    if (!filePath || !isAbsolute(filePath) || !isWriteAllowed(filePath)) {
       return json(res, { ok: false, error: "Invalid or disallowed path" }, 400);
     }
     try {
@@ -436,18 +483,28 @@ async function handleRequest(req, res) {
       } else {
         await wf(filePath, content, "utf-8");
       }
-      await freshScan();
+      await freshScan(true);
       return json(res, { ok: true, message: "Restored successfully" });
     } catch (err) {
-      return json(res, { ok: false, error: `Restore failed: ${err.message}` }, 400);
+      console.error("restore error:", err);
+      return json(res, { ok: false, error: "Restore failed" }, 400);
     }
   }
 
   // POST /api/restore-mcp — restore a deleted MCP server entry
   if (path === "/api/restore-mcp" && req.method === "POST") {
     const { name, config, mcpJsonPath } = await readBody(req);
-    if (!name || !config || !mcpJsonPath || !isPathAllowed(mcpJsonPath)) {
-      return json(res, { ok: false, error: "Missing name, config, or mcpJsonPath, or disallowed path" }, 400);
+    if (!cachedData) await freshScan();
+    // Build allowlist of valid .mcp.json locations from scanner cache
+    const knownMcpPaths = new Set([
+      join(CLAUDE_DIR, ".mcp.json"),
+      ...(cachedData?.scopes
+        .filter(s => s.repoDir)
+        .map(s => join(s.repoDir, ".mcp.json")) || []),
+    ]);
+    const resolvedMcpPath = mcpJsonPath ? resolve(mcpJsonPath) : "";
+    if (!name || !config || !mcpJsonPath || !knownMcpPaths.has(resolvedMcpPath)) {
+      return json(res, { ok: false, error: "Missing fields or unrecognised mcpJsonPath" }, 400);
     }
     try {
       let content = { mcpServers: {} };
@@ -460,17 +517,18 @@ async function handleRequest(req, res) {
       const { dirname } = await import("node:path");
       await mk(dirname(mcpJsonPath), { recursive: true });
       await wf(mcpJsonPath, JSON.stringify(content, null, 2) + "\n");
-      await freshScan();
+      await freshScan(true);
       return json(res, { ok: true, message: `Restored MCP server "${name}"` });
     } catch (err) {
-      return json(res, { ok: false, error: `Restore failed: ${err.message}` }, 400);
+      console.error("restore-mcp error:", err);
+      return json(res, { ok: false, error: "Restore failed" }, 400);
     }
   }
 
   // GET /api/file-content?path=... — read file content for detail panel
   if (path === "/api/file-content" && req.method === "GET") {
     const filePath = url.searchParams.get("path");
-    if (!filePath || !filePath.startsWith("/") || !isPathAllowed(filePath)) {
+    if (!filePath || !isAbsolute(filePath) || !isReadAllowed(filePath)) {
       return json(res, { ok: false, error: "Invalid or disallowed path" }, 400);
     }
     try {
@@ -484,7 +542,7 @@ async function handleRequest(req, res) {
   // GET /api/session-preview?path=... — parse JSONL session into readable conversation
   if (path === "/api/session-preview" && req.method === "GET") {
     const filePath = url.searchParams.get("path");
-    if (!filePath || !filePath.endsWith(".jsonl") || !isPathAllowed(filePath)) {
+    if (!filePath || !filePath.endsWith(".jsonl") || !isReadAllowed(filePath)) {
       return json(res, { ok: false, error: "Invalid or disallowed session path" }, 400);
     }
     try {
@@ -560,8 +618,8 @@ async function handleRequest(req, res) {
     let { exportDir } = await readBody(req);
     // Default to ~/.claude/exports/ if no path provided
     if (!exportDir) exportDir = join(CLAUDE_DIR, "exports");
-    if (!exportDir.startsWith("/")) {
-      return json(res, { ok: false, error: "Invalid exportDir (must be absolute path)" }, 400);
+    if (!isAbsolute(exportDir) || !isWriteAllowed(exportDir)) {
+      return json(res, { ok: false, error: "exportDir must be within ~/.claude/" }, 400);
     }
 
     try {
@@ -618,7 +676,8 @@ async function handleRequest(req, res) {
         errors: errors.length > 0 ? errors : undefined,
       });
     } catch (err) {
-      return json(res, { ok: false, error: `Export failed: ${err.message}` }, 400);
+      console.error("export error:", err);
+      return json(res, { ok: false, error: "Export failed" }, 400);
     }
   }
 
@@ -652,15 +711,15 @@ export function startServer(port = 3847, maxRetries = 10) {
     try {
       await handleRequest(req, res);
     } catch (err) {
-      console.error("Error:", err.message);
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: false, error: err.message }));
+      console.error("Unhandled error:", err);
+      res.writeHead(500, { "Content-Type": "application/json", ...SECURITY_HEADERS });
+      res.end(JSON.stringify({ ok: false, error: "Internal server error" }));
     }
   });
 
   let attempt = 0;
   function tryListen(p) {
-    server.listen(p, () => {
+    server.listen(p, "127.0.0.1", () => {
       console.log(`\nClaude Code Organizer running at http://localhost:${p}\n`);
       console.log(`Made by a CS dropout with no mass, no team, no budget \u2014 just Claude Code and ADHD.`);
       console.log(`This is my first open-source project. If it helped you, a star would make my week:`);
