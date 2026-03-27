@@ -77,7 +77,7 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  font-family: "Lato", -apple-system, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background: var(--bg);
   color: var(--text-primary);
   height: 100vh;
@@ -431,7 +431,7 @@ body {
 .bundle-row-src {
   font-size: 0.62rem;
   color: var(--text-muted);
-  font-family: "Geist Mono", monospace;
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, Menlo, monospace;
   background: var(--surface);
   padding: 2px 8px;
   border-radius: 4px;
@@ -527,8 +527,8 @@ body {
 .ib-plan::before { background: var(--badge-plan); }
 
 .item-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.item-size { font-size: 0.62rem; color: var(--text-faint); font-family: "Geist Mono", monospace; }
-.item-date { font-size: 0.62rem; color: var(--text-faint); font-family: "Geist Mono", monospace; }
+.item-size { font-size: 0.62rem; color: var(--text-faint); font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, Menlo, monospace; }
+.item-date { font-size: 0.62rem; color: var(--text-faint); font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, Menlo, monospace; }
 .item-date::before { content: "·"; margin-right: 2px; }
 
 .item-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 100ms; flex-shrink: 0; }
@@ -587,7 +587,7 @@ body {
 .d-field-preview { flex: 1; display: flex; flex-direction: column; min-height: 160px; }
 .d-label { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
 .d-value { font-size: 0.85rem; color: var(--text-primary); line-height: 1.5; }
-.d-path { font-family: "Geist Mono", monospace; font-size: 0.75rem; color: var(--text-secondary); word-break: break-all; }
+.d-path { font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, Menlo, monospace; font-size: 0.75rem; color: var(--text-secondary); word-break: break-all; }
 .d-dates { display: flex; gap: 20px; flex-wrap: wrap; }
 .d-date-line { font-size: 0.72rem; }
 
@@ -595,7 +595,7 @@ body {
   background: var(--surface-inset);
   border-radius: var(--radius);
   padding: 14px 16px;
-  font-family: "Geist Mono", monospace;
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, Menlo, monospace;
   font-size: 0.75rem;
   line-height: 1.65;
   color: var(--text-secondary);

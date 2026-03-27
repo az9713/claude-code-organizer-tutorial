@@ -122,6 +122,11 @@ async function checkForUpdate() {
 
 async function fetchJson(url) {
   const res = await fetch(url);
+  if (!res.ok) {
+    const err = new Error(`HTTP ${res.status}: ${res.statusText}`);
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
 
