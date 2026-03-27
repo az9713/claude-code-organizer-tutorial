@@ -10,10 +10,9 @@
  * Pure data module. No HTTP, no UI.
  */
 
-import { rename, mkdir, readFile, writeFile, rm, unlink, cp } from "node:fs/promises";
+import { rename, mkdir, readFile, writeFile, rm, unlink, cp, access } from "node:fs/promises";
 import { join, dirname, basename } from "node:path";
 import { homedir } from "node:os";
-import { existsSync } from "node:fs";
 
 /**
  * Move a file or directory, falling back to copy+delete on EXDEV (cross-device).
@@ -30,6 +29,12 @@ async function safeRename(src, dest, isDir = false) {
       throw err;
     }
   }
+}
+
+const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+function sanitizeKeys(obj) {
+  if (!obj || typeof obj !== "object") return obj;
+  return Object.fromEntries(Object.entries(obj).filter(([k]) => !DANGEROUS_KEYS.has(k)));
 }
 
 const HOME = homedir();
@@ -111,9 +116,7 @@ async function moveMemory(item, toScopeId) {
   const toDir = resolveMemoryDir(toScopeId);
   const toPath = join(toDir, item.fileName);
 
-  if (existsSync(toPath)) {
-    return { ok: false, error: `File already exists at destination: ${item.fileName}` };
-  }
+  try { await access(toPath); return { ok: false, error: `File already exists at destination: ${item.fileName}` }; } catch {}
 
   await mkdir(toDir, { recursive: true });
   await safeRename(item.path, toPath);
@@ -136,9 +139,7 @@ async function moveSkill(item, toScopeId, scopes) {
 
   const toPath = join(toSkillsRoot, item.fileName);
 
-  if (existsSync(toPath)) {
-    return { ok: false, error: `Skill directory already exists at destination: ${item.fileName}` };
-  }
+  try { await access(toPath); return { ok: false, error: `Skill directory already exists at destination: ${item.fileName}` }; } catch {}
 
   await mkdir(toSkillsRoot, { recursive: true });
   await safeRename(item.path, toPath, true);
@@ -157,9 +158,7 @@ async function movePlan(item, toScopeId) {
   const toDir = resolvePlanDir(toScopeId);
   const toPath = join(toDir, item.fileName);
 
-  if (existsSync(toPath)) {
-    return { ok: false, error: `File already exists at destination: ${item.fileName}` };
-  }
+  try { await access(toPath); return { ok: false, error: `File already exists at destination: ${item.fileName}` }; } catch {}
 
   await mkdir(toDir, { recursive: true });
   await safeRename(item.path, toPath);
@@ -181,9 +180,7 @@ async function moveRule(item, toScopeId, scopes) {
   }
   const toPath = join(toDir, item.fileName);
 
-  if (existsSync(toPath)) {
-    return { ok: false, error: `Rule already exists at destination: ${item.fileName}` };
-  }
+  try { await access(toPath); return { ok: false, error: `Rule already exists at destination: ${item.fileName}` }; } catch {}
 
   await mkdir(toDir, { recursive: true });
   await safeRename(item.path, toPath);
@@ -205,9 +202,7 @@ async function moveCommand(item, toScopeId, scopes) {
   }
   const toPath = join(toDir, item.fileName);
 
-  if (existsSync(toPath)) {
-    return { ok: false, error: `Command already exists at destination: ${item.fileName}` };
-  }
+  try { await access(toPath); return { ok: false, error: `Command already exists at destination: ${item.fileName}` }; } catch {}
 
   await mkdir(toDir, { recursive: true });
   await safeRename(item.path, toPath);
@@ -229,9 +224,7 @@ async function moveAgent(item, toScopeId, scopes) {
   }
   const toPath = join(toDir, item.fileName);
 
-  if (existsSync(toPath)) {
-    return { ok: false, error: `Agent already exists at destination: ${item.fileName}` };
-  }
+  try { await access(toPath); return { ok: false, error: `Agent already exists at destination: ${item.fileName}` }; } catch {}
 
   await mkdir(toDir, { recursive: true });
   await safeRename(item.path, toPath);
@@ -262,7 +255,8 @@ async function moveMcp(item, toScopeId, scopes) {
     return { ok: false, error: `Cannot read source .mcp.json: ${fromMcpJson}` };
   }
 
-  const serverConfig = fromContent.mcpServers?.[item.name];
+  const servers = sanitizeKeys(fromContent.mcpServers || {});
+  const serverConfig = servers[item.name];
   if (!serverConfig) {
     return { ok: false, error: `Server "${item.name}" not found in ${fromMcpJson}` };
   }
@@ -276,7 +270,8 @@ async function moveMcp(item, toScopeId, scopes) {
     // File doesn't exist or is invalid, start fresh
   }
 
-  if (toContent.mcpServers[item.name]) {
+  const toServers = sanitizeKeys(toContent.mcpServers || {});
+  if (toServers[item.name]) {
     return { ok: false, error: `Server "${item.name}" already exists in destination` };
   }
 
@@ -358,7 +353,8 @@ async function deleteMcp(item) {
     return { ok: false, error: `Cannot read .mcp.json: ${mcpJson}` };
   }
 
-  if (!content.mcpServers?.[item.name]) {
+  const servers = sanitizeKeys(content.mcpServers || {});
+  if (!servers[item.name]) {
     return { ok: false, error: `Server "${item.name}" not found in ${mcpJson}` };
   }
 
