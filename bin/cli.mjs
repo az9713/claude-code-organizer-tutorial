@@ -86,7 +86,7 @@ if (isMcpMode) {
 } else {
   // Web dashboard mode — human opens browser
   const { startServer } = await import('../src/server.mjs');
-  const { execSync } = await import('node:child_process');
+  const { execFile } = await import('node:child_process');
 
   const portIdx = args.indexOf('--port');
   const port = portIdx !== -1 ? parseInt(args[portIdx + 1], 10) : 3847;
@@ -106,9 +106,15 @@ if (isMcpMode) {
   });
 
   try {
-    const openCmd = process.platform === 'darwin' ? 'open' : 'xdg-open';
-    execSync(`${openCmd} http://localhost:${port}`, { stdio: 'ignore' });
+    const openCmds = { darwin: 'open', win32: 'cmd', linux: 'xdg-open' };
+    const platform = process.platform === 'win32' ? 'win32'
+                   : process.platform === 'darwin' ? 'darwin' : 'linux';
+    const openCmd = openCmds[platform];
+    const args = platform === 'win32'
+      ? ['/c', 'start', '', `http://localhost:${port}`]
+      : [`http://localhost:${port}`];
+    execFile(openCmd, args, { stdio: 'ignore' }, () => {});
   } catch {
-    // Browser didn't open, user can navigate manually
+    // Browser didn't open — user can navigate manually
   }
 }
