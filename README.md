@@ -26,6 +26,38 @@ The agents communicated via `SendMessage`, coordinated work through a shared tas
 
 The complete account — turn by turn, message by message, timestamp by timestamp — is in [`cco-docs-team-documentation.md`](./tutorial/cco-docs-team-documentation.md).
 
+## Security Audit & Remediation
+
+This repository also contains a complete OWASP security audit and all 18 remediations, applied to the codebase by a 5-agent Claude Code team.
+
+| File | Description |
+|------|-------------|
+| [`SECURITY-AUDIT.md`](./SECURITY-AUDIT.md) | **Full OWASP Top 10 audit** — beginner-friendly report covering 18 findings (1 Critical, 6 High, 6 Medium, 4 Low, 6 Informational), attack chain analysis, CVSS scores, vulnerable code snippets, attack scenarios, and suggested fixes |
+| [`SECURITY-REMEDIATION-REPORT.md`](./SECURITY-REMEDIATION-REPORT.md) | **Remediation documentation** — per-vulnerability before/after code for all 18 fixes, agent team architecture, per-agent inputs/outputs, and a turn-by-turn communication log |
+| [`docs/plans/2026-03-26-owasp-security-remediations.md`](./docs/plans/2026-03-26-owasp-security-remediations.md) | **TDD implementation plan** — the step-by-step plan (red-green-refactor) used to drive the fixes |
+
+### What Was Fixed
+
+| Severity | Count | Examples |
+|----------|-------|---------|
+| Critical | 1 | Path traversal via `/../` in file restore endpoint |
+| High | 6 | CSRF, MCP API key exposure, shell injection, missing auth headers |
+| Medium | 6 | Prototype pollution, TOCTOU race, body size limit, open network binding |
+| Low | 4 | Error message leakage, missing SRI hash, Google Fonts data exfiltration |
+| Informational | 6 | Dependency audit, response header hygiene, CSP hardening |
+
+### How the Fixes Were Applied
+
+A **5-agent Claude Code team** implemented all changes in parallel — each agent owned a non-overlapping set of files to avoid merge conflicts:
+
+- **server-agent** — `src/server.mjs`: CSRF, path traversal, security headers, CSP, body limit, network binding
+- **scanner-agent** — `src/scanner.mjs`: MCP API key redaction, prototype pollution
+- **mover-agent** — `src/mover.mjs`: TOCTOU race conditions, prototype pollution
+- **frontend-agent** — `src/ui/index.html`, `src/ui/style.css`, `src/ui/app.js`: SRI hash, font privacy, HTTP error handling
+- **cli-agent** — `bin/cli.mjs`: shell injection prevention via `execFile`
+
+The full turn-by-turn communication between agents is documented in [`SECURITY-REMEDIATION-REPORT.md`](./SECURITY-REMEDIATION-REPORT.md).
+
 ## About the Original Project
 
 **Claude Code Organizer** is a visual configuration manager for Claude Code's `~/.claude/` directory. It scans your memories, skills, MCP servers, hooks, plans, rules, commands, agents, sessions, and plugins across all scopes — and lets you move or delete them through a web dashboard or MCP server interface.
